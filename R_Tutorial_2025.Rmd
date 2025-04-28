@@ -1,9 +1,11 @@
 ---
-output:
-  html_document: default
-  pdf_document: default
-  word_document: default
+title: "Untitled"
+author: "James Dare"
+date: "`r Sys.Date()`"
+output: github_document
 ---
+
+
 ```{r, include=FALSE}
 require(aquarius2018)
 library(tidyverse)
@@ -253,6 +255,7 @@ NH4_N_Data <- Data %>%
     
 
 NOFLakesRiversNH3(NH4_N_Data,start="2020-01-01",end="2025-01-01")
+
 ```
 
 
@@ -284,119 +287,119 @@ Here the function names are listed with the AQUARIUS parameter names beneath the
 * NOFRiversSFS
    + Water Clarity
 
-## Tidal Function
-In order to find out the tide conditions at a certain time, the TidalFromDate function can be used. This function is programmed with tide prediction data from the Land Information New Zealand website. It will output estimated water level, next tide, and proportion. The estimated water level is calculated using a cos curve between the nearest high, and low tide water levels. The proportion output can be interpreted as 1 = high tide and 0 = low tide. Currently, it can only be used to look at tides in Tauranga, between 2012 and 2024. 
+<!-- ## Tidal Function -->
+<!-- In order to find out the tide conditions at a certain time, the TidalFromDate function can be used. This function is programmed with tide prediction data from the Land Information New Zealand website. It will output estimated water level, next tide, and proportion. The estimated water level is calculated using a cos curve between the nearest high, and low tide water levels. The proportion output can be interpreted as 1 = high tide and 0 = low tide. Currently, it can only be used to look at tides in Tauranga, between 2012 and 2024.  -->
 
-For example, say we wanted to know what the tide conditions were in Tauranga at 8:27am on the 25th of October 2019. 
-```{r, message=FALSE, results='hide'}
-#input time into function in "yyyy/mm/dd hh:mm:ss" format
-TidalFromDate("2019/10/25 8:27")
+<!-- For example, say we wanted to know what the tide conditions were in Tauranga at 8:27am on the 25th of October 2019.  -->
+<!-- ```{r, message=FALSE, results='hide'} -->
+<!-- #input time into function in "yyyy/mm/dd hh:mm:ss" format -->
+<!-- TidalFromDate("2019/10/25 8:27") -->
 
-```
-```{r,echo=FALSE}
-kable(TidalFromDate("2019/10/25 8:27"))
-```
-
-
-The function has given an estimated water level of 0.784m, a proportion of 0.345 and that the next tide is low. This is shown graphically in the plot below, with the black dot representing our inputted time. 
-```{r, echo=FALSE}
-t<-seq(0,6.08,0.1)
-x<-0.7*sin(0.9681926*t+0.79557758)+1.1
-df<-data.frame(t,x)
-ggplot(df, aes(x=t,y=x))+geom_path(col="blue")+xlab("Time")+theme(axis.text.x = element_blank())+ylab("Water Level (m)")+geom_point(aes(x=3.05,y=0.7))
-```
-
-If you have an existing dataframe you wish to get tidal information for, the TidalFromDateDF function can be used. This function modifies a dataframe into the correct format to be used with the TidalFromDate function, and adds extra columns with the tidal information. The outputted values can be interpreted the same way as above. 
+<!-- ``` -->
+<!-- ```{r,echo=FALSE} -->
+<!-- kable(TidalFromDate("2019/10/25 8:27")) -->
+<!-- ``` -->
 
 
+<!-- The function has given an estimated water level of 0.784m, a proportion of 0.345 and that the next tide is low. This is shown graphically in the plot below, with the black dot representing our inputted time.  -->
+<!-- ```{r, echo=FALSE} -->
+<!-- t<-seq(0,6.08,0.1) -->
+<!-- x<-0.7*sin(0.9681926*t+0.79557758)+1.1 -->
+<!-- df<-data.frame(t,x) -->
+<!-- ggplot(df, aes(x=t,y=x))+geom_path(col="blue")+xlab("Time")+theme(axis.text.x = element_blank())+ylab("Water Level (m)")+geom_point(aes(x=3.05,y=0.7)) -->
+<!-- ``` -->
+
+<!-- If you have an existing dataframe you wish to get tidal information for, the TidalFromDateDF function can be used. This function modifies a dataframe into the correct format to be used with the TidalFromDate function, and adds extra columns with the tidal information. The outputted values can be interpreted the same way as above.  -->
 
 
-## Other Handy functions
-### Write.Excel
-
-You can easily export this tables and data frames to Excel using the 'Write.Excel' function. How this function works is it will copy the data frame to your clip board, so you can simply paste (CTRL+V) into an Excel workbook.
-
-```{r message=FALSE, tidy=TRUE, eval=FALSE}
-Write.Excel()
-```
-
-### The Convert.Columns Function
-This function is useful for rapidly converting columns in a data frame to a specific class (e.g. numeric).
-
-Input requirements are:
-
-* __x__ - a dataframe
-* __y__ - a string of desired classes that correspond to the columns in x.  Options are currently limited to:  "numeric","character","factor",or "integer".
 
 
-```{r message=FALSE, tidy=TRUE}
-#create dummy dataframe
-df = data.frame(SiteID=as.character(c(paste(10112:10121,rep(c("A","B"),5),sep=""))),
-                y = as.character(c(1:10)),
-                z = as.character(c(11:20)),
-                group=as.character(rep(1:5,2)),year=as.character(c(1995:2004)),stringsAsFactors = FALSE)
+<!-- ## Other Handy functions -->
+<!-- ### Write.Excel -->
 
-#determine the class of each column
-sapply(df,class)
-```
+<!-- You can easily export this tables and data frames to Excel using the 'Write.Excel' function. How this function works is it will copy the data frame to your clip board, so you can simply paste (CTRL+V) into an Excel workbook. -->
 
-All columns are of class 'character'.
+<!-- ```{r message=FALSE, tidy=TRUE, eval=FALSE} -->
+<!-- Write.Excel() -->
+<!-- ``` -->
 
-```{r message=FALSE, tidy=TRUE}
-#convert columns to desired results
-df <- Convert.Columns(df,c("factor","integer","numeric","factor","integer"))
+<!-- ### The Convert.Columns Function -->
+<!-- This function is useful for rapidly converting columns in a data frame to a specific class (e.g. numeric). -->
 
-#recheck classes
-sapply(df,class)
+<!-- Input requirements are: -->
 
-```
+<!-- * __x__ - a dataframe -->
+<!-- * __y__ - a string of desired classes that correspond to the columns in x.  Options are currently limited to:  "numeric","character","factor",or "integer". -->
 
-They are now the classes specified above.
 
-### 'List' functions
-There are a variety of functions in the package that will output lists (mostly of AQUARIUS siteIDS) of interest. To use these simply run the function, there are no inputs required: eg
-```{r}
-# to get a list of NERMN River sites
-NERMN_River()
+<!-- ```{r message=FALSE, tidy=TRUE} -->
+<!-- #create dummy dataframe -->
+<!-- df = data.frame(SiteID=as.character(c(paste(10112:10121,rep(c("A","B"),5),sep=""))), -->
+<!--                 y = as.character(c(1:10)), -->
+<!--                 z = as.character(c(11:20)), -->
+<!--                 group=as.character(rep(1:5,2)),year=as.character(c(1995:2004)),stringsAsFactors = FALSE) -->
 
-```
+<!-- #determine the class of each column -->
+<!-- sapply(df,class) -->
+<!-- ``` -->
 
-The 'list' functions are as follows :
+<!-- All columns are of class 'character'. -->
 
-* To output a list of NERMN River siteIDs
-  + NERMN_River
-  
+<!-- ```{r message=FALSE, tidy=TRUE} -->
+<!-- #convert columns to desired results -->
+<!-- df <- Convert.Columns(df,c("factor","integer","numeric","factor","integer")) -->
 
-* To output a list of NERMN Estuary siteIDs
-  + NERMN_Estuary
-  
+<!-- #recheck classes -->
+<!-- sapply(df,class) -->
 
-* To output a list of NERMN Groundwater siteIDS
-  + NERMN_Groundwater
-  
+<!-- ``` -->
 
-* To output a list of NERMN Lake siteIDS
-  + NERMN_Lake
-  
+<!-- They are now the classes specified above. -->
 
-* To output a list of river bathing siteIDs
-  + Bathing_River
-  
+<!-- ### 'List' functions -->
+<!-- There are a variety of functions in the package that will output lists (mostly of AQUARIUS siteIDS) of interest. To use these simply run the function, there are no inputs required: eg -->
+<!-- ```{r} -->
+<!-- # to get a list of NERMN River sites -->
+<!-- NERMN_River() -->
 
-* To output a list of lake bathing siteIDs
-  + Bathing_Lake
-  
+<!-- ``` -->
 
-* To output a list of siteIDs corresponding to biophysical unit
-  + BPU_List
-  
+<!-- The 'list' functions are as follows : -->
 
-* To output list of siteIDs with flow data
-  + Flow_Sites
-  
+<!-- * To output a list of NERMN River siteIDs -->
+<!--   + NERMN_River -->
 
-* To output list of geothermal siteIDs
-  + Geothermal_Sites
+
+<!-- * To output a list of NERMN Estuary siteIDs -->
+<!--   + NERMN_Estuary -->
+
+
+<!-- * To output a list of NERMN Groundwater siteIDS -->
+<!--   + NERMN_Groundwater -->
+
+
+<!-- * To output a list of NERMN Lake siteIDS -->
+<!--   + NERMN_Lake -->
+
+
+<!-- * To output a list of river bathing siteIDs -->
+<!--   + Bathing_River -->
+
+
+<!-- * To output a list of lake bathing siteIDs -->
+<!--   + Bathing_Lake -->
+
+
+<!-- * To output a list of siteIDs corresponding to biophysical unit -->
+<!--   + BPU_List -->
+
+
+<!-- * To output list of siteIDs with flow data -->
+<!--   + Flow_Sites -->
+
+
+<!-- * To output list of geothermal siteIDs -->
+<!--   + Geothermal_Sites -->
 
 
 
