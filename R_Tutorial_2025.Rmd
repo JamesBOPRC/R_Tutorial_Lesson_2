@@ -1,0 +1,453 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+```{r, include=FALSE}
+require(aquarius2018)
+library(tidyverse)
+library(formatR)
+require(reshape2)
+require(httr)
+require(jsonlite)
+require(knitr)
+
+require(ggplot2)
+require(BoPRC2022)
+require(lubridate)
+library(tidyverse)
+
+```
+
+## Getting started with R
+
+The main packages that are used in this tutorial are:
+
+* __BoPRC2022__
+* __aquarius2018__
+* __tidyverse__
+* __lubridate__
+
+Before attempting to install these packages, make sure your Primary CRAN Repository is set to:
+
+  * "New Zealand [https] - University of Auckland".  
+  
+To check this, click 'Tools' --> 'Global Options' --> 'Packages'.  Click 'Change' if you need to adjust this.
+
+You can download most packages by clicking on  the 'Install' button on the 'packages' tab in the lower right window pane.  Then in the Install Packages popup, select ‘Repository (CRAN)’ from the ‘Install from’ drop box and type the name of the package you wish to download (e.g., dplyr). 
+
+The BOPRC2022 and the aquarius2018 packages are not publicly available (i.e., they are only used by BOPRC) so they are installed in a slightly different way.  The most recent version of these packages has been stored on the 'R Packages and Training' MSTeams channel, under 'General' --> 'Files' --> 'Packages 2025 Training'.  Download these '.gz' files somewhere where they can be easily accessed.
+
+To install these packages, click on the 'packages' tab in the lower right window pane.  Click 'Install' and then use the ‘Install from’ drop box to select 'Package Archive File'.  Navigate to the place where you saved the two '.gz' files to install them.
+
+Once all packages are installed you can load them using the 'library' function:
+
+```{r, message=FALSE}
+library(dplyr)
+```
+
+Finally, click on the 'Packages' tab in the lower right corner and ensure there is a tick next to the package you just loaded.
+
+
+# The Aquarius Package
+
+The Aquarius package includes functions that enable the user to link and extract data directly from our Aquarius database.  
+
+Before we can begin we need to load the aquarius package.
+```{r message=FALSE,tidy=TRUE}
+library(aquarius2018)
+```
+
+### Searching for Site Information
+We will explore the functionality of the Aquarius package by getting basic water quality data from a site of interest, let's say 'Pongakawa at SH2'.  This function requires the siteID in order to know exactly what site we are talking about.  Sometimes you may have this and can skip the next step, but in this case we will use the Aquarius package to search for the correct site ID which is housed in Aquarius (the database) tables.  
+
+Use the function 'searchlocationname()' to conduct a wildcard search for all sites that have 'Pongakawa at' in the title.  There are quite a few, so it would pay to save this as a dataframe for easier reference.    
+```{r message=FALSE,tidy=TRUE}
+Site_List <- searchlocationnames("Pongakawa at*")
+
+```
+
+Use the 'view' function to view the object you just created, or click on the name 'SHsites' in the Data pane on the right.
+
+```{r message=FALSE,eval=FALSE,tidy=TRUE}
+View(Site_List)
+```
+
+You can click on the headers of the table to sort by any of the column headings, if that makes things easier. We can see that 'Pongakawa at SH2' is in the 24th row of this data frame.
+
+You can see that the 2nd row in the data frame 'SHSites' contains the site we are interested in.  You can alsosee that the 1st column contains the siteID that we require under 'IDENTIFIER'.   
+
+Site information is stored in a horizontal format, but we can use the R transpose function to make this more readable.
+
+```{r message=FALSE,tidy=TRUE}
+#transpose data from the 24th row
+head(t(Site_List[3,]),5)
+
+#store the 'siteID' as an object that we can call upon later
+SiteID <- Site_List[3,1]
+SiteID
+
+```
+
+Great, now we know that the siteID is 'GN922883' and this value is stored as the object 'SiteID'.  Now we can move on to the next step. Note - you can easily circumvent this step by saving important SiteID's in your project (e.g., as a comment) or by finding SiteID's on Geoview.   
+
+
+### The 'datasets' Function
+
+Now that we know the siteID of our site of interest, lets find out what data is available.  The 'datasets' function will display all datasets stored under the site.  
+
+```{r message=FALSE, tidy=TRUE}
+
+# Create an object with all discrete WQ parameters at the site.
+Datasets <- datasets(SiteID)
+head(Datasets)
+
+```
+
+### The 'LocationWQParameters' Function
+
+An additional function 'LocationWQParameters' provides the display names of all discrete water quality parameters available at a given site (i.e., a subset of the Dataset file you created above).  The display name is the name that you see in 'Aquarius Springboard' and is the required input for the AQMultiExtract function, e.g. TN = "N (Tot)"
+
+
+```{r message=FALSE, tidy=TRUE}
+
+# Create an object with all discrete WQ parameters at the site.
+AvailableWQParams <- LocationWQParameters(SiteID)
+AvailableWQParams
+
+```
+
+We can use this list to define the parameters of interest that we want to extract from the database.  Let's define a parameter list of: E. coli, Nitrite Nitrate (as N), and Ammoniacal N.   
+
+```{r message=FALSE, tidy=TRUE}
+ParamList <- c("E coli","NNN","NH4-N")
+ParamList
+```
+
+### The AQMultiExtractFlat Function
+
+This function is arguably the most useful function in the Aquarius package toolbox.  It is used for extracting datasets with multiple sites and multiple parameters.  
+
+The syntax requirements for AQMultiExtractFlat are: 
+
+* __sitelist__ - a list of site ID's.
+* __params__ - a list of parameters as display names.
+* __start__ - (optional) start date in the format YYYY-MM-DD.
+* __end__ - (optional) end date in the format YYYY-MM-DD.
+
+In this case the sitelist is a list of one, i.e. SiteID, and the paramlist is that above.  We will analyse data between the 1st January 2020 and the 1st January 2025.  
+
+AQMultiExtractFlat will extract the requested data query in long format and include any metadata that is stored in the database.  There is another function called AQMultiExtract which has the same input requirements, but outputs data in a wide format (i.e., Parameters will be columns).  The downside to this is that no metadata will be included.  
+
+```{r, message=FALSE, tidy=TRUE, message=FALSE, results='hide'}
+WQData_Pongakawa <- AQMultiExtractFlat(SiteID,ParamList,start="2020-01-01",end="2025-01-01")
+head(WQData_Pongakawa)
+```
+
+It's as easy as that.  You can save this data to a csv file if you wish. 
+
+```{r message=FALSE, tidy=TRUE,eval=FALSE}
+write.csv(WQData_Pongakawa,file = "Pongakawa_Data.csv",row.names = FALSE)
+```
+
+You might also want to briefly check over the data to ensure that everything is in order.  A simple way to do this is using the 'tidyverse' ecosystem.  In this case we can pass the object (WQData_Pongakawa) to the ggplot function to create a plot.
+
+```{r message=FALSE, tidy=TRUE,eval=TRUE}
+
+WQData_Pongakawa %>%
+  ggplot()+
+  geom_point(aes(x=Time,y=Value))+
+  facet_wrap(~Parameter,scales="free_y",nrow=3)+
+  xlab(NULL)+
+  theme_bw()
+```
+
+We can see that there is something strange in the E. coli dataset, where the frequency increases over the summer period.  This is due to the collection of additional recreational bathing data at this site between October and April the following year.  We should remove these data from the dataset if we are planning to run analyses designed for monthly datasets (e.g., assessment against most NPS-FM attributes or trend analysis.  Luckily recreational bathing data and routine monthly samples are defined in the 'qualifiers' column of a 'AQMultiExtractFlat' dataset. 
+
+Use the filter function in the tidyverse pipeline below to see what the data looks like if only 'routine' data are included.  Note the code below doesn't make any changes to the dataset or create any new objects, which is why tidyverse is great for exploring data.
+
+```{r message=FALSE, tidy=TRUE,eval=TRUE}
+
+WQData_Pongakawa %>%
+  filter(Qualifiers == "Routine") %>%
+  ggplot()+
+  geom_point(aes(x=Time,y=Value))+
+  facet_wrap(~Parameter,scales="free_y",nrow=3)+
+  xlab(NULL)+
+  theme_bw()
+```
+
+This looks much better and we might want to save the filtered data as 'routine' dataset.
+
+```{r message=FALSE, tidy=TRUE,eval=TRUE}
+
+Routine_Data <- WQData_Pongakawa %>%
+  filter(Qualifiers == "Routine")
+
+```
+ 
+
+We could also save the recreational bathing data as a 'rec bathing' dataset.
+
+```{r message=FALSE, tidy=TRUE,eval=TRUE}
+
+WQData_Pongakawa %>%
+  filter(Parameter == "E coli (cfu/100ml)")%>%
+  filter(Qualifiers == "Recreational")%>%
+  ggplot()+
+  geom_point(aes(x=Time,y=Value))+
+  xlab(NULL)+
+  theme_bw()
+
+Rec_Bathing_Data <- WQData_Pongakawa %>%
+  filter(Parameter == "E coli (cfu/100ml)")%>%
+  filter(Qualifiers == "Recreational")
+
+```
+
+# The BoPRC2022 package
+This package is an updated version of the BoPRC package, mainly used for water quality data analysis. Most updates will go unnoticed to users that are familiar with the BoPRC package, as they were not intended to change functionality. However there are some new functions that will be introduced at the end of this section that may be of interest. The intention is to expand this suite as users write or discover functions that may be useful for other staff.  This is a great way to achieve standardised and auditable outputs for reporting purposes.  The options for future development are unlimited, so make sure you discuss any ideas you have you have with James. 
+
+
+# National Objective Framework Functions
+Reporting against the NOF can be a mundane exercise, and many attributes are open to interpretation.  For this reason we have created several functions to process large datasets using standardized methodology. These bandings are consistent with those specified in the National Policy Statement for Freshwater Management 2020. A full list is included at the end of this section. 
+
+## Guide for using NOF functions
+Most of the NOF functions use the same method to obtain results. The function NOFAll has a different method that will be explained later. The remainder of the functions can be executed using this guide, which will use the NOFLakesTP function as an example. These functions will subset the data based on the system time of the users computer, to the applicable timeframe for the attritubute. Eg. NOFLakesTP will analyse the most recently __completed__ 1 year period from Jun to July. 
+
+<!-- **Step 1 - Obtaining the data** -->
+<!-- The first step for using the NOF functions is to create a dataframe in the correct format. This is done using the AQMultiExtract function in the AQUARIUS package. Each function requires different input parameters (this will be covered later), and there can be as many sites as desired. In order to obtain data in the correct format, the simpler method is to create a new dataframe for each parameter (shown below). -->
+<!-- ```{r, results='hide'} -->
+<!-- #creating a list of our sites of interest -->
+<!-- Sites<-c("DO406909","GN922883","KL998150") -->
+
+<!-- #creating a dataframe of our sites, and their total Phosphurus results -->
+<!-- PhosData<-AQMultiExtract(Sites, "P (Tot)") -->
+
+<!-- ``` -->
+<!-- An alternate method is to create a dataframe with all desired parameters like we did earlier on in the tutorial. Then alter and subset the dataframe to be in the right format for each function. -->
+<!-- ```{r,results='hide'} -->
+<!-- #creating a list of our sites of interest -->
+<!-- Sites<-c("DO406909","GN922883","KL998150") -->
+
+<!-- #creating a list of our parameters of interest -->
+<!-- Parameters<-c("pH","P (Tot)","E coli") -->
+
+<!-- #creating a dataframe of our sites and parameters (in alphabetical order) -->
+<!-- Data<-AQMultiExtract(Sites, Parameters) -->
+<!-- ``` -->
+<!-- Either method can be used depending on preference. -->
+
+
+<!-- **Step 2 - Using the function** -->
+<!-- Once the data has been obtained, simply enter the data into the function. For method 1... -->
+<!-- ```{r, message=FALSE,results='hide'} -->
+<!-- NOFLakesTP(PhosData) -->
+<!-- ``` -->
+<!-- ```{r,echo=FALSE} -->
+<!-- kable(NOFLakesTP(PhosData)) -->
+<!-- ``` -->
+
+<!-- Using the function with data obtained using method 2 from step 1. -->
+<!-- ```{r, message=FALSE, results='hide'} -->
+<!-- #view our data to see which column P (Tot) parameter is in  -->
+<!-- View(Data) -->
+<!-- #in this case, it is in column 5 -->
+
+<!-- #using the function with subsetted data (all rows, columns 1,2,3 and 5) -->
+<!-- NOFLakesTP(Data[,c(1,2,3,5)]) -->
+<!-- ``` -->
+<!-- ```{r, echo=FALSE} -->
+<!-- kable(NOFLakesTP(Data[,c(1,2,3,5)])) -->
+<!-- ``` -->
+<!-- Some functions have additional arguments that allow you to specify between classes (NOFPeriphyton), lake types (NOFLakesTN) or adjust pH values (NOFLakesRiversNH3). More information on the functions can be found in the help files, that can be accessed like this. -->
+<!-- ```{r, results=FALSE, message=FALSE, results='hide'} -->
+<!--  ?NOFLakesTP -->
+<!-- ``` -->
+
+
+
+
+
+
+
+<!-- ## The NOFAll function -->
+
+<!-- This function will simultaneously compute applicable NOF attribute band values for a given site. The same additional arguments can be specified as done in the individual NOF function. If a start and end time is specified, it will be applied to all NOF values. For example, say we wanted to know all the NOF attribute band values for site ID DO406909. -->
+<!-- ```{r, message=FALSE, results='hide'} -->
+
+<!-- #using the function to create a dataframe -->
+<!-- AllBands<-NOFAll("DO406909") -->
+
+<!-- #viewing the dataframe -->
+<!-- AllBands -->
+<!-- ``` -->
+<!-- ```{r,echo=FALSE} -->
+<!-- kable(AllBands) -->
+<!-- ``` -->
+<!-- This function can only be used with one site. However, if you have multiple sites that have the same NOF bands, you can combine them like this. -->
+<!-- ```{r, message=FALSE, results='hide'} -->
+
+<!-- #creating 2 NOFAll data frames  -->
+<!-- DOBands<-NOFAll("DO406909") -->
+<!-- GMBands<-NOFAll("GM781934") -->
+
+<!-- #combining the data frames -->
+<!-- DOKLBands<-rbind(DOBands,GMBands) -->
+
+<!-- #viewing the combined data -->
+<!-- DOKLBands -->
+<!-- ``` -->
+
+<!-- ```{r, echo=FALSE, message=FALSE} -->
+
+<!-- kable(DOKLBands) -->
+
+<!-- ``` -->
+
+
+<!-- ### NOF functions and their inputs -->
+<!-- Here the function names are listed with the AQUARIUS parameter names beneath them. The NOF guide should be followed, with these parameters being extracted using the AQMultiExtract function. Then the new dataframe being inputted into the function of interest.  -->
+
+<!-- * NOFLakesPhytoplankton -->
+<!--    + Chloro a -->
+<!-- * NOFPeriphyton -->
+<!--    + Chloro Periphyton -->
+<!-- * NOFLakesTN -->
+<!--    + N (Tot) -->
+<!-- * NOFLakesTP -->
+<!--    + P (Tot) -->
+<!-- * NOFLakesRiversNH3 -->
+<!--    + Ammoniacal N -->
+<!--    + pH -->
+<!-- * NOFRiversNO3 -->
+<!--    + Nirite Nitrate (as N) -->
+<!-- * NOFLakesRiversECOLI -->
+<!--    + E coli -->
+<!-- * NOFCyanobacteria -->
+<!--    + Total Cyanobacteria -->
+<!--    + Potentially Toxic Cyanobacteria -->
+<!-- * NOFRiversDRP -->
+<!--    + DRP -->
+<!-- * NOFRiversNO3 -->
+<!--    + Nitrite Nitrate (as N) -->
+<!-- * NOFRiversSFS -->
+<!--    + Water Clarity -->
+
+<!-- ## Tidal Function -->
+<!-- In order to find out the tide conditions at a certain time, the TidalFromDate function can be used. This function is programmed with tide prediction data from the Land Information New Zealand website. It will output estimated water level, next tide, and proportion. The estimated water level is calculated using a cos curve between the nearest high, and low tide water levels. The proportion output can be interpreted as 1 = high tide and 0 = low tide. Currently, it can only be used to look at tides in Tauranga, between 2012 and 2024.  -->
+
+<!-- For example, say we wanted to know what the tide conditions were in Tauranga at 8:27am on the 25th of October 2019.  -->
+<!-- ```{r, message=FALSE, results='hide'} -->
+<!-- #input time into function in "yyyy/mm/dd hh:mm:ss" format -->
+<!-- TidalFromDate("2019/10/25 8:27") -->
+
+<!-- ``` -->
+<!-- ```{r,echo=FALSE} -->
+<!-- kable(TidalFromDate("2019/10/25 8:27")) -->
+<!-- ``` -->
+
+
+<!-- The function has given an estimated water level of 0.784m, a proportion of 0.345 and that the next tide is low. This is shown graphically in the plot below, with the black dot representing our inputted time.  -->
+<!-- ```{r, echo=FALSE} -->
+<!-- t<-seq(0,6.08,0.1) -->
+<!-- x<-0.7*sin(0.9681926*t+0.79557758)+1.1 -->
+<!-- df<-data.frame(t,x) -->
+<!-- ggplot(df, aes(x=t,y=x))+geom_path(col="blue")+xlab("Time")+theme(axis.text.x = element_blank())+ylab("Water Level (m)")+geom_point(aes(x=3.05,y=0.7)) -->
+<!-- ``` -->
+
+<!-- If you have an existing dataframe you wish to get tidal information for, the TidalFromDateDF function can be used. This function modifies a dataframe into the correct format to be used with the TidalFromDate function, and adds extra columns with the tidal information. The outputted values can be interpreted the same way as above.  -->
+
+
+
+
+<!-- ## Other Handy functions -->
+<!-- ### Write.Excel -->
+
+<!-- You can easily export this tables and data frames to Excel using the 'Write.Excel' function. How this function works is it will copy the data frame to your clip board, so you can simply paste (CTRL+V) into an Excel workbook. -->
+
+<!-- ```{r message=FALSE, tidy=TRUE, eval=FALSE} -->
+<!-- Write.Excel() -->
+<!-- ``` -->
+
+<!-- ### The Convert.Columns Function -->
+<!-- This function is useful for rapidly converting columns in a data frame to a specific class (e.g. numeric). -->
+
+<!-- Input requirements are: -->
+
+<!-- * __x__ - a dataframe -->
+<!-- * __y__ - a string of desired classes that correspond to the columns in x.  Options are currently limited to:  "numeric","character","factor",or "integer". -->
+
+
+<!-- ```{r message=FALSE, tidy=TRUE} -->
+<!-- #create dummy dataframe -->
+<!-- df = data.frame(SiteID=as.character(c(paste(10112:10121,rep(c("A","B"),5),sep=""))), -->
+<!--                 y = as.character(c(1:10)), -->
+<!--                 z = as.character(c(11:20)), -->
+<!--                 group=as.character(rep(1:5,2)),year=as.character(c(1995:2004)),stringsAsFactors = FALSE) -->
+
+<!-- #determine the class of each column -->
+<!-- sapply(df,class) -->
+<!-- ``` -->
+
+<!-- All columns are of class 'character'. -->
+
+<!-- ```{r message=FALSE, tidy=TRUE} -->
+<!-- #convert columns to desired results -->
+<!-- df <- Convert.Columns(df,c("factor","integer","numeric","factor","integer")) -->
+
+<!-- #recheck classes -->
+<!-- sapply(df,class) -->
+
+<!-- ``` -->
+
+<!-- They are now the classes specified above. -->
+
+<!-- ### 'List' functions -->
+<!-- There are a variety of functions in the package that will output lists (mostly of AQUARIUS siteIDS) of interest. To use these simply run the function, there are no inputs required: eg -->
+<!-- ```{r} -->
+<!-- # to get a list of NERMN River sites -->
+<!-- NERMN_River() -->
+
+<!-- ``` -->
+
+<!-- The 'list' functions are as follows : -->
+
+<!-- * To output a list of NERMN River siteIDs -->
+<!--   + NERMN_River -->
+
+
+<!-- * To output a list of NERMN Estuary siteIDs -->
+<!--   + NERMN_Estuary -->
+
+
+<!-- * To output a list of NERMN Groundwater siteIDS -->
+<!--   + NERMN_Groundwater -->
+
+
+<!-- * To output a list of NERMN Lake siteIDS -->
+<!--   + NERMN_Lake -->
+
+
+<!-- * To output a list of river bathing siteIDs -->
+<!--   + Bathing_River -->
+
+
+<!-- * To output a list of lake bathing siteIDs -->
+<!--   + Bathing_Lake -->
+
+
+<!-- * To output a list of siteIDs corresponding to biophysical unit -->
+<!--   + BPU_List -->
+
+
+<!-- * To output list of siteIDs with flow data -->
+<!--   + Flow_Sites -->
+
+
+<!-- * To output list of geothermal siteIDs -->
+<!--   + Geothermal_Sites -->
+
+
+

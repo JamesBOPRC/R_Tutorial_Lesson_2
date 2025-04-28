@@ -1,0 +1,566 @@
+---
+title: "In-house R Packages for BoPRC"
+author: "James Dare"
+date: "7th March 2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,tidy.opts=list(width.cutoff=50),tidy=TRUE)
+```
+
+
+
+# Introduction
+
+Hopefully you all have a reasonable understanding of the functionality of R following the course run by Martin Bader.  One of the most useful things from our perspective at BoPRC, is the ability to link to different databases and analyse data directly from them, without the need to load pre-extracted CSV or Excel files.  This is preferable, from a data management point of view, as it means that scientists are always referring to the 'source of truth', which is constantly being updated, quality checked, and improved.  Eventually this will negate the need to have 'pet databases' stored on hard drives, as data will become accessible at the click of a button (or a line or two of code).
+
+In addition to this, Darren and I are working hard to build packages of functions that may be useful for everyday council analyses.  With proper training, these packages should save you a lot of time as R can do most of the mundane data crunching for you!  
+
+The aim of this tutorial is to introduce you to two packages: 'Aquarius' built by Data Services <EDS.JobRequests@boprc.govt.nz>, and 'BoPRC' built by <james.dare@boprc.govt.nz>.  Please feel free to contact us if you have any questions, or more importantly, any suggestions for future improvements (including new analysis tools).   
+
+# Downloading and Updating Packages
+
+The two in-house packages can be downloaded using the following lines of code.
+
+For aquarius
+```{r message=FALSE,eval=FALSE,tidy=TRUE}
+latest_packages = list.files("V:/Applications/Data Services/Data Services/
+                             Environmental Data Services/Tools/Software/R")
+  latest_package = latest_packages[grep("aquarius_",latest_packages)]
+  install.packages(paste("V:/Applications/Data Services/Data Services/
+                         Environmental Data Services/Tools/Software/R/",
+                         latest_package, sep = ""), repos = NULL)
+  .rs.restartR()
+```
+
+
+For BoPRC
+```{r message=FALSE,eval=FALSE,tidy=TRUE}
+latest_packages = list.files("V:/Applications/Data Services/Data Services/
+                             Environmental Data Services/Tools/Software/R")
+  latest_package = latest_packages[grep("BoPRC_",latest_packages)]
+  install.packages(paste("V:/Applications/Data Services/Data Services/
+                         Environmental Data Services/Tools/Software/R/",
+                         latest_package, sep = ""), repos = NULL)
+  .rs.restartR()
+```
+
+As the packages are a work in progress and will be added to and improved over time, there will be a need to update periodically. We have made this easy with a function within the package. The function will look for the most up to date package and then overwrite the existing, allowing for any changes to be available immediately.
+
+For aquarius
+```{r message=FALSE,eval=FALSE,tidy=TRUE}
+update_aquarius_package()
+```
+
+For BoPRC
+```{r message=FALSE,eval=FALSE,tidy=TRUE}
+update_boprc_package()
+```
+## Additional Packages Required
+
+You will also need to have access to the following external packages (and their dependents) to complete this tutorial: 'httr', 'stringr', 'ggplot2','grid','gridExtra', 'wq'.
+
+
+# The Aquarius Package
+
+The Aquarius package includes functions that enable the user to link and extract data directly from our Aquarius database.  
+
+Before we can begin we need to load the aquarius package.
+```{r message=FALSE,tidy=TRUE}
+library(aquarius)
+```
+
+##Searching for Site Information
+We will explore the functionality of the Aquarius package by importing a basic flow record from a site of interest, let's say 'Whakatane at Whakatane (Valley Road)'.  This function requires the siteID in order to know exactly what site we are talking about.  Sometimes you may have this and can skip the next step, but in this case we will use the Aquarius package to search for the correct site ID which is housed in Aquarius (the database) tables.  
+
+Use the function 'searchlocationname()' to conduct a wildcard search for all sites that have 'Whakatane' in the title.  There are quite a few, so it would pay to save this as a dataframe for easier reference.    
+```{r message=FALSE,tidy=TRUE}
+WHKsites <- searchlocationname('*Whakatane*')
+
+```
+
+Use the 'view' function to view the object you just created, or click on the name 'WHKsites' in the Data pane on the right.
+
+```{r message=FALSE,eval=FALSE,tidy=TRUE}
+View(WHKsites)
+```
+
+You can click on the headers of the table to sort by any of the column headings, if that makes things easier.
+
+You can see that the 31st row in the dataframe 'WHKSites' contains the site we are interested in.  If you scroll across you can see that the 6th column contains the siteID that we require.   
+
+Site information is stored in a horizontal format, but we can use the R transpose function to make this more readable.
+
+```{r message=FALSE,tidy=TRUE}
+#transpose data from the 31st row
+t(WHKsites[31,])
+
+#store the 'siteID' as an object that we can call upon later
+SiteID <- WHKsites [31,6]
+SiteID
+
+```
+
+Great, now we know that the siteID is 'LL080607' and this value is stored as the object 'SiteID'.  Now we can move on to the next step.  
+
+##Discovering Data
+
+Let's use another function 'datasets()' to see what data has been collected at the Valley Road site.
+
+```{r message=FALSE,tidy=TRUE}
+WHKVRData <- datasets(SiteID)
+head(WHKVRData,5)
+```
+
+Again, you can either execute this code or click on WHKVRData in the Data pane.
+```{r message=FALSE,eval=FALSE,tidy=TRUE}
+View(WHKVRData)
+```
+
+The required input for the next function is called the 'DataID' (column 3 in WHKVRData).  We are interested in flow, which is called 'QR' in Aquarius.  In this case there are many flow derivatives but we are only interested in the raw data 'QR.Master'. To make things even more confusing, raw flow data at NIWA sites are called 'QR.Master' whereas the same data at BOPRC sites is called 'QR.Primary'.  You may also notice that 'DataID' is simply a combination of the type of data and the site name, i.e. 'QR.Master@LL080607'.  
+
+###The 'getdata' Function
+
+The 'getdata' function forms the foundation for Aquarius data extraction within R.  You will be introduced to another data extraction method later on called 'AQMultiExtract', but that function simply loops through multiple site and parameter combinations using the getdata function and then stitches everything together.  
+
+Take a look at column 13 in WHKVRData and you will notice that there are 973000+ records for 'QR.Master'.  It would take a long time to process if we extracted all that data.  Luckily, the 'getdata' function that we use to call data allows us to specify a time frame in the format 'YYYY-MM-DD'.   
+
+Let's extract flow data from this site for the calendar year of 2014.  Note that all inputs into the getdata function need to be character strings. 
+
+
+```{r message=FALSE, tidy=TRUE}
+Flow <- getdata('QR.Master@LL080607', start = '2014-01-01', end = '2014-12-31')
+
+head(Flow,5)
+
+```
+
+###Plotting Flow Data
+
+As you can see, we now have a dataframe with flow from the 'Whakatane at Whakatane (Valley Road)' site, for the year of 2014.  Let's plot this data, just because we can!
+
+You may remember from Martin's course that there a multiple plotting packages available.  The 'base' plotting package is loaded when you start R and provides a 'no-frills' approach to plotting. When I say no-frills, you can definitely make your plots attractive but you may need more code than other packages.    
+
+
+```{r message=FALSE, tidy=FALSE}
+# This code uses the base package to create an x-y plot
+
+plot(x = Flow$Time,y=Flow$Value, type='l',
+     main = paste("Flow at Whakatane at Whakatane (Valley Road)",
+                  "\n","for the 2014 calendar year"), 
+     xlab = "Date",ylab = expression(paste("Flow (m"^3,"/s)",sep="")))
+
+```
+
+Another alternative is ggplot which, in the words of the developer, "takes care of many of the fiddly details that make plotting a hassle (like drawing legends) as well as providing a powerful model of graphics that makes it easy to produce complex multi-layered graphics".  
+
+I find ggplot to be one of the more user-friendly plotting packages, with lots of support and a multitude of plotting options.  You can find out more here: http://ggplot2.org/.
+
+```{r message=FALSE, tidy=TRUE}
+# load the ggplot2 package
+library(ggplot2)
+
+#plot the flow data
+ggplot(data = Flow, mapping = aes(x= Time, y=Value)) + 
+  geom_line() +
+  labs(x = "Date", y=expression(paste("Flow (m"^3,"/s)",sep=""))) +
+  ggtitle(paste("Flow at Whakatane at Whakatane (Valley Road)",
+                  "\n","for the 2014 calendar year")) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+The choice is yours in the end, but I recommend learning one package well using this for the majority of your day-to-day plots. 
+
+## Extracting Water Quality Data
+
+Great, we have flow for the Whakatane River, but what about water quality metrics?  Sometimes these will be available at the same site as the flow record, but often water quality and flow are measured separately and have to be linked together.  
+
+For the next part of this tutorial we will extract water quality data from the Whakatane at Pekatahi Bridge site, and then append each sample with flow from the continuous flow record (Whakatane at Whakatane [Valley Road]).
+
+First, lets go back to the dataframe 'WHKsites' to find 'Whakatane at Pekatahi Bridge'
+
+```{r message=FALSE, tidy=TRUE}
+# Whakatane at Pekatahi Brige is row 13 in the WHKsites dataframe
+t(WHKsites[13,])
+
+# Save the site ID as object 'SiteID2'
+SiteID2 <- WHKsites [13,6]
+SiteID2
+
+
+```
+
+The function we are going to use requires a list of sites and a list of parameters as input.  Our list of sites has been created above (SiteID2) so now we need to create a list of parameters.  
+
+### The 'LocationWQParameters' Function
+
+The 'LocationWQParameters' function provides the display names of all discrete water quality parameters available at a given site.  The display name is the name that you see in 'Aquarius Springboard' and is the required input for the AQMultiExtract function, e.g. TN = "N (Tot)"
+
+We input the SiteID2 object above to provide us with this list of water quality parameters available at the Pekatahi Bridge site.   
+
+
+```{r message=FALSE, tidy=TRUE}
+
+# Create an object with all discrete WQ parameters at the site.
+AvailableWQParams <- LocationWQParameters(SiteID2)
+AvailableWQParams
+
+
+```
+
+We may not be interested in all of the available data, so let's create a subset that specifies: NNN, TN, NH4 + NH3, TP, DRP, E. Coli, and pH.  To do this, we could either write out the display names using 'c("N (Tot)","Nitrite Nitrate (as N)", ...)' and assign it to an object, or we could refer to the object we created above and use the row numbers of the parameters we are interested in.
+
+```{r message=FALSE, tidy=TRUE}
+ParamList <- AvailableWQParams[c(9,8,3,29,19,21,30)]
+ParamList
+```
+
+### The AQMultiExtract Function
+
+This function is the most useful tool in the Aquarius package toolbox, for extracting large datasets with multiple sites and multiple parameters.  You can also use it for extracting a single site with multiple parameters (as in this case), or multiple sites with a single parameter.  
+
+The syntax requirements for AQMultiExtract are: 
+
+* __sitelist__ - a list of site ID's.
+* __params__ - a list of parameters as display names.
+* __start__ - (optional) start date in the format YYYY-MM-DD.
+* __end__ - (optional) end date in the format YYYY-MM-DD.
+
+In this case the sitelist is a list of one, i.e. SiteID2, and the paramlist is that above.  We will analyse data between the 1st January 2007 and the 1st January 2017 (i.e. a ten year period).  
+
+```{r message=FALSE, tidy=TRUE}
+WQData_Pekatahi <- AQMultiExtract(SiteID2,ParamList,start = '2007-01-01',end ='2017-01-01')
+head(WQData_Pekatahi)
+
+```
+
+It's as easy as that.  You could save this to a csv file using the code below if you wish, but we will carry on.
+
+```{r message=FALSE, tidy=TRUE,eval=FALSE}
+write.csv(WQData_Pekatahi,file = "FILEPATH.csv",row.names = FALSE)
+```
+
+
+## Appending Flow to Water Quality Data
+
+In this section we will append mean daily flow values from a continuous flow record to the water quality dataset we created above.  This tool can also be used to match up spot gauging values with water quality samples, as the timestamps don't usually match up, therefore they can't be extracted together via AQMultiExtract.   
+
+The first step is to extract a ten year dataset to match our water quality dataset. 
+
+We can use the same methodology as before to extact a 10 year flow record from this site.  This may take a while as 10 years of continuous data is a lot! 
+
+```{r message=FALSE, tidy=TRUE}
+Flow10YR <- getdata('QR.Master@LL080607', start = '2007-01-01', end = '2017-01-01')
+```
+
+###The AQAppendFlow Function
+
+Now that we have a WQ dataset and a continuous flow record, we want to match time stamps to determine the flow when samples were taken.  We could either find out the timestamp for each sample and then trawl through the flow record to determine the best match, or we could use our newly developed R skills...
+
+To assist in this task, we have developed a function called 'AQAppendFlow'.  The purpose of this is to append flow values from another source (dataframe) to a separate dataframe containing discrete water quality information. The function works by looking at the timestamp for each sample in your WQ dataset, and then calculating the difference between that and each data line in the flow record.  You also need to specify the time bracket that flow timestamps can precede or proceed the WQ timestamp (e.g. +- 5 days).  If there are more than one available flow values within the specified bracket, the function will take the value that is closet to the WQ timestamp.     
+
+You can use AQAppendFlow for linking WQ data to discrete (spot gauging) or continuous flow.  Note that spot gauging data will have a different timestamp to WQ samples and therefore doesn't line up when using AQMultiExtract.  
+
+For the current task, we have a dataset of continuous (15 min) flow data that we want to append to the dataset 'WQData_Pekatahi'.  It also makes more sense to use mean daily flow, as matching WQ time stamps to the nearest 15 minute flow stamp does not seem like an appropriate representation of the general state of the river when the sample was taken.  This would also require a great deal more processing!   
+
+Before we start the process, we need to turn our continuous flow record into a mean daily record (note that some Aquarius sites have a pre-calculated mean daily flow record, and it may be easier just to extract that).  We can do this using the 'FlowtoMeanDaily' function.  This only requires a continuous flow record to run.
+
+```{r message=FALSE, tidy=TRUE}
+Flow10YR_MD <- FlowtoMeanDaily(Flow10YR)
+head(Flow10YR_MD)
+```
+
+Note that the observations reduced from 456813 to 3654.  This is much more manageable for our analysis.  
+
+The AQAppendFlow function allows multiple flow sites to be appended to multiple WQ sites by matching up site IDs.  We only have one WQ site in this case, but our flow data is lacking the required information to tell the function which site it belongs to.  We can do this by modifying the flow dataframe so it matches the required input: ("ID","Name","Time", "Discharge").
+
+```{r message=FALSE, tidy=TRUE}
+ #we are changing the ID so it can be matched to the WQ dataset
+Flow10YR_MD$ID <- "KL998150"
+
+#the same goes for the name
+Flow10YR_MD$Name <- "Whakatane at Pekatahi Bridge" 
+
+#final flow dataset
+Flow10YR_MD <- Flow10YR_MD[,c(4,5,2,3)]
+
+head(Flow10YR_MD)
+
+```
+
+Now we can append flow to the WQ dataset using the AQAppendFlow function.  This requires: a dataset of WQ data (i.e. WQData_Pekatahi), a dataset of flow values (i.e. Flow10YR_MD), and a bracket of acceptable duration (in days). Lets use 1 day as this is a continuous record and there should be data within one day of the WQ timestamp.
+
+```{r message=FALSE, tidy=TRUE}
+WQData_Appended <-AQAppendFlow(WQData_Pekatahi,Flow10YR_MD,1)
+head(WQData_Appended)
+```
+
+Success!  We now have a WQ dataset from Pekitahi Bridge that is appended with flow from the Valley Road continuous monitoring site.  Note that this is just an example and there may be many reasons why you would not do this (talk to EDS before attempting).
+
+We can now use our plotting skills to look at how individual parameters vary with flow.
+
+```{r message=FALSE, tidy=TRUE}
+#change the names into something more useful
+names(WQData_Appended) <- c("SiteID","Name","Time","NH4","DRP", "ECOLI", "TN", "NNN","TP","pH","Flow")
+
+#plot the data
+ggplot(WQData_Appended, aes(x=Flow, y=TN))+geom_point(na.rm=TRUE)+ylab("TN (mg/L)")+xlab(expression(paste("Flow (m"^3,"/s)",sep="")))
+```
+
+Perhaps we would like to create 'flow bins' based on flow quantiles, and then see how TN varies.
+
+```{r message=FALSE, tidy=TRUE}
+#calculate flow quantiles
+quantile(WQData_Appended$Flow)
+
+#use flow quantiles to specify factor levels 
+WQData_Appended$Flowbin <- ifelse(WQData_Appended$Flow <17.992135,"Low",ifelse(WQData_Appended$Flow >=54.199848,"Medium","High"))
+
+#reorder the factor levels so they make sense (the deafault is alphabetical)
+WQData_Appended$Flowbin <- as.factor(WQData_Appended$Flowbin)
+WQData_Appended$Flowbin <- factor(WQData_Appended$Flowbin, levels = c("Low","Medium","High"))
+
+#create a boxplot
+ggplot(WQData_Appended, aes(x=Flowbin, y=TN))+geom_boxplot(na.rm=TRUE)+ylab("TN (mg/L)")+xlab("Flow Bin")
+```
+
+## The BoPRC Library
+
+The BoPRC library is intended as a suite of useful analyses and data manipulation methods to make life a bit simpler for BoPRC R users.  The intention is to expand this suite as users write or discover functions that may be useful for other staff.  This is a great way to achieve standardised and auditable outputs for reporting purposes.  The options for future development are unlimited, so make sure you discuss any ideas you have you have with James. 
+
+To get started, let's load the BoPRC package so we can access these tools.
+
+```{r message=FALSE,tidy=TRUE}
+library(BoPRC)
+```
+
+###NOF Reporting
+Reporting against the NOF can be a mundane exercise, and many attributes are open to interpretation.  For this reason we have created a function to process large datasets using standardised methodology. In this example we will demonstrate the two most complicated functions: NOFLakesRiversNH3, and NOFLakesRiversECOLI.  However, there are also functions to assess against other NOF tables.  Details of these are listed at the bottom of this section under 'List of NOF Functions', but you can also search the BoPRC help file for more information.
+
+
+First let's create a dummy river water quality dataset using the Aquarius package.
+
+```{r message=FALSE,tidy=TRUE}
+#random list of sites taken from the SOE network
+Sites <- c("BQ966369","EL204387","EL613536","RN123610","FN834668","FL356693","FO620177","RO629568","DP784306","DO406909",
+"GI416337","QM756918","QJ471191","CO543022","EL174017","MK788545")
+
+#parameters required for this analysis
+Parameters <- c("E coli","Ammoniacal N","pH")
+
+#use AQMultiExtract to pull out data from multiple site/parameter combinations.
+RiverWQ <- AQMultiExtract(Sites,Parameters,start="2010-01-01",end="2017-01-01")
+head(RiverWQ)
+```
+
+
+###Ammonia Toxicity
+
+Let's start with Ammonia Toxicity (NH3-N calculated from NH4-N and pH).  
+
+The function 'NOFLakesRiversNH3' requires the following inputs:
+
+* __data__ -user to input a dataframe in the format: SiteID, Site Name, Time (in YYYY-DD-MM), Value, pH.  
+* __start__ - (optional) in the format YYYY-MM-DD.
+* __end__ - (optional) in the format YYYY-MM-DD.
+* __adjust__ (optional) a boolean adjustment parameter (either TRUE or FALSE).  If TRUE, the NH4-N values will be adjusted for pH, assuming a temperature of 20.0 degrees.  The default is FALSE.             
+
+```{r message=FALSE, tidy=TRUE, eval=TRUE}
+#subset the RiverWQ data so it is in the correct format
+RiverWQNH3 <- RiverWQ[c(1,2,3,4,6)]
+
+#get rid of rows with empty values
+RiverWQNH3 <- RiverWQNH3[complete.cases(RiverWQNH3),]
+
+#run summary function
+NH3Summary <- NOFLakesRiversNH3(RiverWQNH3, start="", end="", adjust=TRUE)
+head(NH3Summary,14)
+```
+
+Success! You can easily export this table to Excel using the 'Write.Excel' function.  I find this is the easiest way to manipulate tables for reports or presentations.
+
+```{r message=FALSE, tidy=TRUE, eval=FALSE}
+Write.Excel(NH3Summary)
+```
+
+
+### Swimmability
+Assessing swimmability against the NOF used to be a straightforward exercise, but now there are multiple attributes to consider when calculating a NOF band, and sometimes the logic doesn't quite stack up.  The 'NOFLakesRiversECOLI' function provides a tool with which swimmability can be assessed, but requires the user to make up their own mind when things don't work (i.e. bands do not agree between numeric attributes).
+
+The function requires the following inputs:
+
+* __data__ - in the usual format of: SiteID, Site Name, Time (in YYYY-DD-MM), Value.  
+* __start__ - (optional) in the format YYYY-MM-DD
+* __end__ - (optional) in the format YYYY-MM-DD.
+
+```{r message=FALSE, tidy=TRUE, eval=TRUE}
+#subset the RiverWQ data so it is in the correct format
+RiverECOLI <- RiverWQ[c(1,2,3,5)]
+
+#get rid of rows with empty values
+RiverECOLI <- RiverECOLI[complete.cases(RiverECOLI),]
+
+#run summary function
+NOFLakesRiversECOLI(RiverECOLI)
+
+```
+
+The output provides a breakdown of the attributes used to calculate both the former NOF attribute bands (i.e. primary and secondary contact), and the new NOF bands.  The function will also tell you if the site is swimmable under the respective guidelines.  
+
+In this case you can see that 'Kopurererua at SH2' throws an error for the new guidelines.  This is because the four numeric attributes do not align with each other.  In this case the percent exceedance attributes place the site in the 'yellow' band, the median places the site in the 'orange' band, and 95th percentile put the site in the 'red' band.  The NOF states that attribute state must be determined by satisfying all numeric attribute states, therefore this is left up to the user to interpret.
+
+###List of NOF Functions
+
+NOF functions exist for the following attributes:
+
+* __Lakes__
+    + Total Nitrogen (NOFLakesTN)
+    + Total Phosphorus (NOFLakesTP)
+    + Phytoplankton (NOFLakesPhytoplankton)
+* __Rivers__
+    + Periphyton (NOFRiversPeriphyton)
+    + Nitrate (NOFRiversNO3)
+* __Lakes and Rivers__
+    + Ecoli (NOFLakesRiversECOLI)
+    + Ammonia (NOFLakesRiversNH3)
+
+They all have similar input requirements, please refer to the help files for more information. 
+
+## Other Interesting Functions
+
+This section looks at other functions in the BoPRC package that you may find useful.  These are less important to the tutorial, so feel free to explore them at your own will.
+
+### LAWA Distribution Plots
+
+This tool came about via discussion with Rebecca Lawton about the best way to communicate 'state' in absence of a useful framework.  The idea is to compare the median of a site to a distribution that you wish to compare against (e.g. all like sites in the BoP, or all like sites in NZ), and then display the quartile group in an easy-to-read manner.  Essentially this enables us to report in the same way as can be found on LAWA.
+
+The first step in doing this is to load a dataset that will be used for comparison.  In this case we will create one using the rnorm function.
+
+```{r message=FALSE, tidy=TRUE}
+National_TN <- rnorm(1000,mean= 0.23,sd=0.09)
+head(National_TN,20)
+```
+Next we can convert this into an create an 'Empirical Cumulative Distribution' using the ecdf.  This function creates a cumulative distribution from the dataset we just created.  
+
+```{r message=FALSE, tidy=TRUE}
+National_TN_ecdf <- ecdf(National_TN)
+
+```
+
+We can then query the distribution to determine where our comparison value sits, in this case we want to know how the median TN value from the WQData_Appended dataset compares to our national dataset.
+
+```{r message=FALSE, tidy=TRUE}
+National_TN_ecdf(median(WQData_Appended$TN,na.rm=T))
+
+#example plot of the ecdf function
+plot(National_TN_ecdf,xlab="TN (mg/L)",ylab="Cumulative Probability")
+points(x=median(WQData_Appended$TN,na.rm=T),y=National_TN_ecdf(median(WQData_Appended$TN,na.rm=T)),pch=19,cex=2)
+abline(h=National_TN_ecdf(median(WQData_Appended$TN,na.rm=T)),v=median(WQData_Appended$TN,na.rm=T),lty=2)
+text(x=median(WQData_Appended$TN,na.rm=T)+0.1,y=National_TN_ecdf(median(WQData_Appended$TN,na.rm=T))+0.03,labels="ecdf(Median TN)")
+text(x=median(WQData_Appended$TN,na.rm=T)-0.01,y=0.6,labels="Median TN",srt=90)
+
+```
+This tells us that our median value falls in the 21st percentile of the national distribution.  This can be confusing to the public, but luckily we can present the results in an easy to understand graphic using the LAWADistPlots function.  This function creates a normal distribution and then fills in the area, and changes the colour, corresponding to a specified 'group' number. The group number refers to the percentile area that you want shaded: 1 = 0-25%, 2=25-50%, 3=50-75%, 4=75-100%.  Note that this only works with parameters where higher values are perceived as being worse.
+
+In the case above, the 21st percentile corresponds to group 1.
+```{r message=FALSE, tidy=TRUE, fig.width=7, fig.height=4,}
+LAWADistPlots(group=1)+ggtitle("TN")+theme(plot.title = element_text(hjust = 0.5))
+```
+
+This is not that useful by itself, but we can add other parameters to give a better 'site description'. Lets just assume that we used the ecdf function to calculate the percentiles of four other parameters.  Generally we would do this by summarising the WQ dataset into means for each parameter, and running through each parameter-distribution pair using the ecdf function.  We would then create another column where we would categorise the percentile outputs into groups that could be fed into the LAWADistPlots function.  In this case, we will assume that: TN = group 2, TP = group 4, ECOLI = group 1, and NH4-N = group 3.  We can plot these together using the gridextra package and the code below:   
+
+```{r message=FALSE, tidy=TRUE}
+#create individual plots and save them as objects
+pTN <- LAWADistPlots(group=1)+ggtitle("TN")+theme(plot.title = element_text(hjust = 0.5))
+pTP <- LAWADistPlots(group=4)+ggtitle("TP")+theme(plot.title = element_text(hjust = 0.5))
+pECOLI <- LAWADistPlots(group=2)+ggtitle("ECOLI")+theme(plot.title = element_text(hjust = 0.5))
+pNH4 <- LAWADistPlots(group=3)+ggtitle("NH4-N")+theme(plot.title = element_text(hjust = 0.5))
+
+#load the gridExtra and grid package.  These help with manipulating the objects in the plotting space.
+library(gridExtra)
+library(grid)
+#combine all plots into one
+grid.arrange(pTN,pTP,pECOLI,pNH4, ncol=2, top = textGrob("Whakatane at Pekatahi Bridge",gp=gpar(fontsize=20,font=1)))
+
+```
+
+
+### The Hazen.Percentile Function
+This is an r version of the Hazen calculator on the MFE website:
+http://www.mfe.govt.nz/publications/fresh-water/bathewatch-user-guide/hazen-percentile-calculator.
+
+Input is in the form of a vector of numbers that you want to calculate the percentile from, and the percentile value that you are interested in. 
+
+We can use ECOLI values from the WQData_Appended dataset to run this analysis.  Assume we are interested in a 95th percentile value.
+
+```{r message=FALSE, tidy=TRUE}
+Hazen.Percentile(WQData_Appended[,6],95)
+```
+
+The result is 1274.  
+
+### The Convert.Columns Function
+This function is useful for rapidly converting columns in a data frame to a specific class (e.g. numeric).
+
+Input requirements are:
+
+* __x__ - a dataframe
+* __y__ - a string of desired classes that correspond to the columns in x.  Options are currently limited to:  "numeric","character","factor",or "integer".
+
+
+```{r message=FALSE, tidy=TRUE}
+#create dummy dataframe
+df = data.frame(SiteID=as.character(c(paste(10112:10121,rep(c("A","B"),5),sep=""))),
+                y = as.character(c(1:10)),
+                z = as.character(c(11:20)),
+                group=as.character(rep(1:5,2)),year=as.character(c(1995:2004)),stringsAsFactors = FALSE)
+
+#determine the class of each column
+sapply(df,class)
+```
+
+All columns are of class 'character'.
+
+```{r message=FALSE, tidy=TRUE}
+#convert columns to desired results
+df <- Convert.Columns(df,c("factor","integer","numeric","factor","integer"))
+
+#recheck classes
+sapply(df,class)
+
+```
+
+They are now the classes specified above.
+
+### The CheckTrends Function
+
+This function is modified from the code of Sean Hodges (Horizons Regional Council), and is used for calculating trends for the LAWA site.  I have amended this slightly so that Aquarius datasets can easily be checked.
+
+We will use the WQData_Appended dataset for this example.  
+
+The CheckTrends function requires the following inputs: 
+
+* __data__ - an AQMultiExtract dataframe, or a data frame with an identical layout.
+* __paramcol__ - the column of the parameter you are interested in.
+* __start__ - (optional) start date of analysis in YYYY-MM-DD.
+* __end__ - (optional) end date of analysis in YYYY-MM-DD.
+* __bdisc__ - (optional) a boolean to determine if the parameter is black disc (hence a decreasing trend is bad).
+
+Here's an example.
+```{r message=FALSE, tidy=TRUE}
+CheckTrends(WQData_Appended,paramcol = 7,start = "2010-01-01",end = "2017-01-01")
+```
+
+As you can see, the output provides a sen slope (sen.slope), percentage annual change (sen.slope.pct), p value (p.value), information about missing data for each month (miss), and a trend score (trendscore).  Trend scores at the 95% confidence level are as follows:
+* __-2__ = declining trend by more than 1% per annum.
+* __-1__ = declining trend by less than 1% per annum.
+* __0__ = no significant trend.
+* __1__ = improving trend by less than 1% per annum.
+* __2__ = improving trend by more than 1% per annum.
+
+Trend scores do not change direction for black disc.  
+
+Note that this analysis does not adjust for flow.  I am still trying to figure out how to do this.
+
