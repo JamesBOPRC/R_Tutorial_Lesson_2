@@ -18,6 +18,7 @@ require(BoPRC2022)
 require(lubridate)
 library(tidyverse)
 
+
 ```
 
 ## Getting started with R
@@ -206,6 +207,7 @@ Rec_Bathing_Data <- WQData_Pongakawa %>%
 
 ```
 
+
 # The BoPRC2022 package
 This package is an updated version of the BoPRC package, mainly used for water quality data analysis. Most updates will go unnoticed to users that are familiar with the BoPRC package, as they were not intended to change functionality. However there are some new functions that will be introduced at the end of this section that may be of interest. The intention is to expand this suite as users write or discover functions that may be useful for other staff.  This is a great way to achieve standardised and auditable outputs for reporting purposes.  The options for future development are unlimited, so make sure you discuss any ideas you have you have with James. 
 
@@ -214,240 +216,187 @@ This package is an updated version of the BoPRC package, mainly used for water q
 Reporting against the NOF can be a mundane exercise, and many attributes are open to interpretation.  For this reason we have created several functions to process large datasets using standardized methodology. These bandings are consistent with those specified in the National Policy Statement for Freshwater Management 2020. A full list is included at the end of this section. 
 
 ## Guide for using NOF functions
-Most of the NOF functions use the same method to obtain results. The function NOFAll has a different method that will be explained later. The remainder of the functions can be executed using this guide, which will use the NOFLakesTP function as an example. These functions will subset the data based on the system time of the users computer, to the applicable timeframe for the attritubute. Eg. NOFLakesTP will analyse the most recently __completed__ 1 year period from Jun to July. 
+Most of the NOF functions use the same method to obtain results.  ....... These functions will subset the data based on the system time of the users computer, to the applicable timeframe for the attritubute. Eg. NOFLakesTP will analyse the most recently __completed__ 1 year period from Jun to July. 
+
+**Step 1 - Obtaining the data**
+The first step for using the NOF functions is to create a dataframe in the correct format. This is done using the AQMultiExtract function in the AQUARIUS package. 
 
-<!-- **Step 1 - Obtaining the data** -->
-<!-- The first step for using the NOF functions is to create a dataframe in the correct format. This is done using the AQMultiExtract function in the AQUARIUS package. Each function requires different input parameters (this will be covered later), and there can be as many sites as desired. In order to obtain data in the correct format, the simpler method is to create a new dataframe for each parameter (shown below). -->
-<!-- ```{r, results='hide'} -->
-<!-- #creating a list of our sites of interest -->
-<!-- Sites<-c("DO406909","GN922883","KL998150") -->
+```{r,results='hide'}
+#creating a list of our sites of interest
+Sites<-c("DO406909","GN922883","KL998150")
 
-<!-- #creating a dataframe of our sites, and their total Phosphurus results -->
-<!-- PhosData<-AQMultiExtract(Sites, "P (Tot)") -->
+#creating a list of our parameters of interest
+Parameters<-c("NNN","NH4-N","pH")
 
-<!-- ``` -->
-<!-- An alternate method is to create a dataframe with all desired parameters like we did earlier on in the tutorial. Then alter and subset the dataframe to be in the right format for each function. -->
-<!-- ```{r,results='hide'} -->
-<!-- #creating a list of our sites of interest -->
-<!-- Sites<-c("DO406909","GN922883","KL998150") -->
-
-<!-- #creating a list of our parameters of interest -->
-<!-- Parameters<-c("pH","P (Tot)","E coli") -->
-
-<!-- #creating a dataframe of our sites and parameters (in alphabetical order) -->
-<!-- Data<-AQMultiExtract(Sites, Parameters) -->
-<!-- ``` -->
-<!-- Either method can be used depending on preference. -->
-
-
-<!-- **Step 2 - Using the function** -->
-<!-- Once the data has been obtained, simply enter the data into the function. For method 1... -->
-<!-- ```{r, message=FALSE,results='hide'} -->
-<!-- NOFLakesTP(PhosData) -->
-<!-- ``` -->
-<!-- ```{r,echo=FALSE} -->
-<!-- kable(NOFLakesTP(PhosData)) -->
-<!-- ``` -->
-
-<!-- Using the function with data obtained using method 2 from step 1. -->
-<!-- ```{r, message=FALSE, results='hide'} -->
-<!-- #view our data to see which column P (Tot) parameter is in  -->
-<!-- View(Data) -->
-<!-- #in this case, it is in column 5 -->
-
-<!-- #using the function with subsetted data (all rows, columns 1,2,3 and 5) -->
-<!-- NOFLakesTP(Data[,c(1,2,3,5)]) -->
-<!-- ``` -->
-<!-- ```{r, echo=FALSE} -->
-<!-- kable(NOFLakesTP(Data[,c(1,2,3,5)])) -->
-<!-- ``` -->
-<!-- Some functions have additional arguments that allow you to specify between classes (NOFPeriphyton), lake types (NOFLakesTN) or adjust pH values (NOFLakesRiversNH3). More information on the functions can be found in the help files, that can be accessed like this. -->
-<!-- ```{r, results=FALSE, message=FALSE, results='hide'} -->
-<!--  ?NOFLakesTP -->
-<!-- ``` -->
+#creating a dataframe of our sites and parameters (in alphabetical order)
+Data<-AQMultiExtractFlat(Sites, Parameters)
+```
 
+**Step 2 - Using the function**
+Once the data has been obtained, simply enter the data into the function. 
 
+```{r, message=FALSE,results='hide'}
+Nitrate_Data <- Data %>% 
+  filter(Parameter == "NNN (g/m^3)") %>% 
+  select(Site, LocationName, Time, Value)
 
+NOFRiversNO3(Nitrate_Data,start="2020-01-01",end="2025-01-01")
+```
 
+NH4-N needs to be adjusted by pH to assess against the NPS.  The following code manipulates the dataset and applies the NOFLakesRiversNH3 function.
 
+```{r, message=FALSE,results='hide'}
+NH4_N_Data <- Data %>% 
+  filter(Parameter %in% c("NH4-N (g/m^3)","pH (pH Units)")) %>% 
+  select(Site, LocationName, Time, Parameter, Value) %>%
+  pivot_wider(names_from = Parameter,id_cols = c("Site","LocationName","Time"),values_from = Value)
+    
 
+NOFLakesRiversNH3(NH4_N_Data,start="2020-01-01",end="2025-01-01")
+```
 
-<!-- ## The NOFAll function -->
 
-<!-- This function will simultaneously compute applicable NOF attribute band values for a given site. The same additional arguments can be specified as done in the individual NOF function. If a start and end time is specified, it will be applied to all NOF values. For example, say we wanted to know all the NOF attribute band values for site ID DO406909. -->
-<!-- ```{r, message=FALSE, results='hide'} -->
+### NOF functions and their inputs
+Here the function names are listed with the AQUARIUS parameter names beneath them. The NOF guide should be followed, with these parameters being extracted using the AQMultiExtract function. Then the new dataframe being inputted into the function of interest. 
 
-<!-- #using the function to create a dataframe -->
-<!-- AllBands<-NOFAll("DO406909") -->
+* NOFLakesPhytoplankton
+   + Chloro a
+* NOFPeriphyton
+   + Chloro Periphyton
+* NOFLakesTN
+   + N (Tot)
+* NOFLakesTP
+   + P (Tot)
+* NOFLakesRiversNH3
+   + Ammoniacal N
+   + pH
+* NOFRiversNO3
+   + Nirite Nitrate (as N)
+* NOFLakesRiversECOLI
+   + E coli
+* NOFCyanobacteria
+   + Total Cyanobacteria
+   + Potentially Toxic Cyanobacteria
+* NOFRiversDRP
+   + DRP
+* NOFRiversNO3
+   + Nitrite Nitrate (as N)
+* NOFRiversSFS
+   + Water Clarity
 
-<!-- #viewing the dataframe -->
-<!-- AllBands -->
-<!-- ``` -->
-<!-- ```{r,echo=FALSE} -->
-<!-- kable(AllBands) -->
-<!-- ``` -->
-<!-- This function can only be used with one site. However, if you have multiple sites that have the same NOF bands, you can combine them like this. -->
-<!-- ```{r, message=FALSE, results='hide'} -->
+## Tidal Function
+In order to find out the tide conditions at a certain time, the TidalFromDate function can be used. This function is programmed with tide prediction data from the Land Information New Zealand website. It will output estimated water level, next tide, and proportion. The estimated water level is calculated using a cos curve between the nearest high, and low tide water levels. The proportion output can be interpreted as 1 = high tide and 0 = low tide. Currently, it can only be used to look at tides in Tauranga, between 2012 and 2024. 
 
-<!-- #creating 2 NOFAll data frames  -->
-<!-- DOBands<-NOFAll("DO406909") -->
-<!-- GMBands<-NOFAll("GM781934") -->
+For example, say we wanted to know what the tide conditions were in Tauranga at 8:27am on the 25th of October 2019. 
+```{r, message=FALSE, results='hide'}
+#input time into function in "yyyy/mm/dd hh:mm:ss" format
+TidalFromDate("2019/10/25 8:27")
 
-<!-- #combining the data frames -->
-<!-- DOKLBands<-rbind(DOBands,GMBands) -->
+```
+```{r,echo=FALSE}
+kable(TidalFromDate("2019/10/25 8:27"))
+```
 
-<!-- #viewing the combined data -->
-<!-- DOKLBands -->
-<!-- ``` -->
 
-<!-- ```{r, echo=FALSE, message=FALSE} -->
+The function has given an estimated water level of 0.784m, a proportion of 0.345 and that the next tide is low. This is shown graphically in the plot below, with the black dot representing our inputted time. 
+```{r, echo=FALSE}
+t<-seq(0,6.08,0.1)
+x<-0.7*sin(0.9681926*t+0.79557758)+1.1
+df<-data.frame(t,x)
+ggplot(df, aes(x=t,y=x))+geom_path(col="blue")+xlab("Time")+theme(axis.text.x = element_blank())+ylab("Water Level (m)")+geom_point(aes(x=3.05,y=0.7))
+```
 
-<!-- kable(DOKLBands) -->
+If you have an existing dataframe you wish to get tidal information for, the TidalFromDateDF function can be used. This function modifies a dataframe into the correct format to be used with the TidalFromDate function, and adds extra columns with the tidal information. The outputted values can be interpreted the same way as above. 
 
-<!-- ``` -->
 
 
-<!-- ### NOF functions and their inputs -->
-<!-- Here the function names are listed with the AQUARIUS parameter names beneath them. The NOF guide should be followed, with these parameters being extracted using the AQMultiExtract function. Then the new dataframe being inputted into the function of interest.  -->
 
-<!-- * NOFLakesPhytoplankton -->
-<!--    + Chloro a -->
-<!-- * NOFPeriphyton -->
-<!--    + Chloro Periphyton -->
-<!-- * NOFLakesTN -->
-<!--    + N (Tot) -->
-<!-- * NOFLakesTP -->
-<!--    + P (Tot) -->
-<!-- * NOFLakesRiversNH3 -->
-<!--    + Ammoniacal N -->
-<!--    + pH -->
-<!-- * NOFRiversNO3 -->
-<!--    + Nirite Nitrate (as N) -->
-<!-- * NOFLakesRiversECOLI -->
-<!--    + E coli -->
-<!-- * NOFCyanobacteria -->
-<!--    + Total Cyanobacteria -->
-<!--    + Potentially Toxic Cyanobacteria -->
-<!-- * NOFRiversDRP -->
-<!--    + DRP -->
-<!-- * NOFRiversNO3 -->
-<!--    + Nitrite Nitrate (as N) -->
-<!-- * NOFRiversSFS -->
-<!--    + Water Clarity -->
+## Other Handy functions
+### Write.Excel
 
-<!-- ## Tidal Function -->
-<!-- In order to find out the tide conditions at a certain time, the TidalFromDate function can be used. This function is programmed with tide prediction data from the Land Information New Zealand website. It will output estimated water level, next tide, and proportion. The estimated water level is calculated using a cos curve between the nearest high, and low tide water levels. The proportion output can be interpreted as 1 = high tide and 0 = low tide. Currently, it can only be used to look at tides in Tauranga, between 2012 and 2024.  -->
+You can easily export this tables and data frames to Excel using the 'Write.Excel' function. How this function works is it will copy the data frame to your clip board, so you can simply paste (CTRL+V) into an Excel workbook.
 
-<!-- For example, say we wanted to know what the tide conditions were in Tauranga at 8:27am on the 25th of October 2019.  -->
-<!-- ```{r, message=FALSE, results='hide'} -->
-<!-- #input time into function in "yyyy/mm/dd hh:mm:ss" format -->
-<!-- TidalFromDate("2019/10/25 8:27") -->
+```{r message=FALSE, tidy=TRUE, eval=FALSE}
+Write.Excel()
+```
 
-<!-- ``` -->
-<!-- ```{r,echo=FALSE} -->
-<!-- kable(TidalFromDate("2019/10/25 8:27")) -->
-<!-- ``` -->
+### The Convert.Columns Function
+This function is useful for rapidly converting columns in a data frame to a specific class (e.g. numeric).
 
+Input requirements are:
 
-<!-- The function has given an estimated water level of 0.784m, a proportion of 0.345 and that the next tide is low. This is shown graphically in the plot below, with the black dot representing our inputted time.  -->
-<!-- ```{r, echo=FALSE} -->
-<!-- t<-seq(0,6.08,0.1) -->
-<!-- x<-0.7*sin(0.9681926*t+0.79557758)+1.1 -->
-<!-- df<-data.frame(t,x) -->
-<!-- ggplot(df, aes(x=t,y=x))+geom_path(col="blue")+xlab("Time")+theme(axis.text.x = element_blank())+ylab("Water Level (m)")+geom_point(aes(x=3.05,y=0.7)) -->
-<!-- ``` -->
+* __x__ - a dataframe
+* __y__ - a string of desired classes that correspond to the columns in x.  Options are currently limited to:  "numeric","character","factor",or "integer".
 
-<!-- If you have an existing dataframe you wish to get tidal information for, the TidalFromDateDF function can be used. This function modifies a dataframe into the correct format to be used with the TidalFromDate function, and adds extra columns with the tidal information. The outputted values can be interpreted the same way as above.  -->
 
+```{r message=FALSE, tidy=TRUE}
+#create dummy dataframe
+df = data.frame(SiteID=as.character(c(paste(10112:10121,rep(c("A","B"),5),sep=""))),
+                y = as.character(c(1:10)),
+                z = as.character(c(11:20)),
+                group=as.character(rep(1:5,2)),year=as.character(c(1995:2004)),stringsAsFactors = FALSE)
 
+#determine the class of each column
+sapply(df,class)
+```
 
+All columns are of class 'character'.
 
-<!-- ## Other Handy functions -->
-<!-- ### Write.Excel -->
+```{r message=FALSE, tidy=TRUE}
+#convert columns to desired results
+df <- Convert.Columns(df,c("factor","integer","numeric","factor","integer"))
 
-<!-- You can easily export this tables and data frames to Excel using the 'Write.Excel' function. How this function works is it will copy the data frame to your clip board, so you can simply paste (CTRL+V) into an Excel workbook. -->
+#recheck classes
+sapply(df,class)
 
-<!-- ```{r message=FALSE, tidy=TRUE, eval=FALSE} -->
-<!-- Write.Excel() -->
-<!-- ``` -->
+```
 
-<!-- ### The Convert.Columns Function -->
-<!-- This function is useful for rapidly converting columns in a data frame to a specific class (e.g. numeric). -->
+They are now the classes specified above.
 
-<!-- Input requirements are: -->
+### 'List' functions
+There are a variety of functions in the package that will output lists (mostly of AQUARIUS siteIDS) of interest. To use these simply run the function, there are no inputs required: eg
+```{r}
+# to get a list of NERMN River sites
+NERMN_River()
 
-<!-- * __x__ - a dataframe -->
-<!-- * __y__ - a string of desired classes that correspond to the columns in x.  Options are currently limited to:  "numeric","character","factor",or "integer". -->
+```
 
+The 'list' functions are as follows :
 
-<!-- ```{r message=FALSE, tidy=TRUE} -->
-<!-- #create dummy dataframe -->
-<!-- df = data.frame(SiteID=as.character(c(paste(10112:10121,rep(c("A","B"),5),sep=""))), -->
-<!--                 y = as.character(c(1:10)), -->
-<!--                 z = as.character(c(11:20)), -->
-<!--                 group=as.character(rep(1:5,2)),year=as.character(c(1995:2004)),stringsAsFactors = FALSE) -->
+* To output a list of NERMN River siteIDs
+  + NERMN_River
+  
 
-<!-- #determine the class of each column -->
-<!-- sapply(df,class) -->
-<!-- ``` -->
+* To output a list of NERMN Estuary siteIDs
+  + NERMN_Estuary
+  
 
-<!-- All columns are of class 'character'. -->
+* To output a list of NERMN Groundwater siteIDS
+  + NERMN_Groundwater
+  
 
-<!-- ```{r message=FALSE, tidy=TRUE} -->
-<!-- #convert columns to desired results -->
-<!-- df <- Convert.Columns(df,c("factor","integer","numeric","factor","integer")) -->
+* To output a list of NERMN Lake siteIDS
+  + NERMN_Lake
+  
 
-<!-- #recheck classes -->
-<!-- sapply(df,class) -->
+* To output a list of river bathing siteIDs
+  + Bathing_River
+  
 
-<!-- ``` -->
+* To output a list of lake bathing siteIDs
+  + Bathing_Lake
+  
 
-<!-- They are now the classes specified above. -->
+* To output a list of siteIDs corresponding to biophysical unit
+  + BPU_List
+  
 
-<!-- ### 'List' functions -->
-<!-- There are a variety of functions in the package that will output lists (mostly of AQUARIUS siteIDS) of interest. To use these simply run the function, there are no inputs required: eg -->
-<!-- ```{r} -->
-<!-- # to get a list of NERMN River sites -->
-<!-- NERMN_River() -->
+* To output list of siteIDs with flow data
+  + Flow_Sites
+  
 
-<!-- ``` -->
-
-<!-- The 'list' functions are as follows : -->
-
-<!-- * To output a list of NERMN River siteIDs -->
-<!--   + NERMN_River -->
-
-
-<!-- * To output a list of NERMN Estuary siteIDs -->
-<!--   + NERMN_Estuary -->
-
-
-<!-- * To output a list of NERMN Groundwater siteIDS -->
-<!--   + NERMN_Groundwater -->
-
-
-<!-- * To output a list of NERMN Lake siteIDS -->
-<!--   + NERMN_Lake -->
-
-
-<!-- * To output a list of river bathing siteIDs -->
-<!--   + Bathing_River -->
-
-
-<!-- * To output a list of lake bathing siteIDs -->
-<!--   + Bathing_Lake -->
-
-
-<!-- * To output a list of siteIDs corresponding to biophysical unit -->
-<!--   + BPU_List -->
-
-
-<!-- * To output list of siteIDs with flow data -->
-<!--   + Flow_Sites -->
-
-
-<!-- * To output list of geothermal siteIDs -->
-<!--   + Geothermal_Sites -->
+* To output list of geothermal siteIDs
+  + Geothermal_Sites
 
 
 
