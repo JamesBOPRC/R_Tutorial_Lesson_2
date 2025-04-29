@@ -1,4 +1,4 @@
-BOPRC R Tutorial 2 - Introduction to internal packages
+Untitled
 ================
 James Dare
 2025-04-29
@@ -341,6 +341,69 @@ standardised and auditable outputs for reporting purposes. The options
 for future development are unlimited, so make sure you discuss any ideas
 you have you have with James.
 
+### Generic Functions
+
+- Write.Excel - copies a dataframe to the clipboard in an excel format.
+- Concert.Columns - converts all columns to a defined class.
+- Percentile_Plot - produces a simple plot where a dot represents a
+  percentile input.
+- Continuous_TS - figures out the earliest date before a gap occurs in a
+  timeseries.
+- TidalFromDate - returns the proportion of the tidal height for a given
+  date.
+
+### Bathing Functions
+
+- Bathing_Season - returns the bathing season for a given date.
+- MAC - calculates the microbial assessment category.
+- FW_Action_Levels -
+- Hazen.Percentile - calculates the hazen percentile for a dataset.
+- SFRG_Table
+- 
+
+### Site Look-up or Check Functions
+
+- BPU_List - returns a list of siteID’s for each biophysical class.
+- BPU_Check - returns the biophysical class for a siteID.
+- SSC_Check - returns SSC class for a siteID.
+- NERMN_Groundwater - returns all groundwater siteID’s.
+- FlowSites - returns all flow siteID’s.
+- NERMN_Estuary - returns all estuary siteID’s.
+- NERMN_River - returns all river siteID’s.
+- Geothermal_Sites - returns all geothermal siteID’s.
+- NERMN_Lake - returns all lake siteID’s organised by: integrated,
+  hypolimnion, bottom, and discrete.
+- lakelist - returns all lake siteID’s
+- Bathing_River - returns all riverine bathing siteID’s.
+- Bathing_Lake - returns all lake bathing siteID’s.
+
+### NPS-FM Functions
+
+- NOFLakesPhytoplankton
+  - Chloro a
+- NOFPeriphyton
+  - Chloro Periphyton
+- NOFLakesTN
+  - N (Tot)
+- NOFLakesTP
+  - P (Tot)
+- NOFLakesRiversNH3
+  - Ammoniacal N
+  - pH
+- NOFRiversNO3
+  - Nirite Nitrate (as N)
+- NOFLakesRiversECOLI
+  - E coli
+- NOFCyanobacteria
+  - Total Cyanobacteria
+  - Potentially Toxic Cyanobacteria
+- NOFRiversDRP
+  - DRP
+- NOFRiversNO3
+  - Nitrite Nitrate (as N)
+- NOFRiversSFS
+  - Water Clarity
+
 # National Objective Framework Functions
 
 Reporting against the NOF can be a mundane exercise, and many attributes
@@ -381,7 +444,7 @@ Nitrate_Data <- Data %>%
   filter(Parameter == "NNN (g/m^3)") %>% 
   select(Site, LocationName, Time, Value)
 
-NOFRiversNO3(Nitrate_Data,start="2020-01-01",end="2025-01-01")
+# NOFRiversNO3(Nitrate_Data,start="2020-01-01",end="2025-01-01")
 ```
 
 NH4-N needs to be adjusted by pH to assess against the NPS. The

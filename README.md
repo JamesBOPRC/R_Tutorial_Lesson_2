@@ -430,6 +430,18 @@ dataframe being inputted into the function of interest.
 - NOFRiversSFS
   - Water Clarity
 
+## Problem Statement
+Try to write a function that prints "Hello, world!".
+
+<details>
+ <summary>Click to see the solution</summary>
+
+```r
+# Solution
+print("Hello, world!")
+```
+
+
 <!-- ## Tidal Function -->
 <!-- In order to find out the tide conditions at a certain time, the TidalFromDate function can be used. This function is programmed with tide prediction data from the Land Information New Zealand website. It will output estimated water level, next tide, and proportion. The estimated water level is calculated using a cos curve between the nearest high, and low tide water levels. The proportion output can be interpreted as 1 = high tide and 0 = low tide. Currently, it can only be used to look at tides in Tauranga, between 2012 and 2024.  -->
 <!-- For example, say we wanted to know what the tide conditions were in Tauranga at 8:27am on the 25th of October 2019.  -->
